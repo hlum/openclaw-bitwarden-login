@@ -1,6 +1,7 @@
 // Fills a login form in the OpenClaw browser over the Chrome DevTools Protocol.
 // Reads one JSON object on stdin, prints one JSON result on stdout. Secrets never go to argv, stdout or logs.
-//   {mode:"login", url, username, password, hints:{user,pass,next}}   open url in a new tab, fill, submit
+//   {mode:"login", url, username, password, hints:{user,pass,next}, here?}   open url in a new tab (here: use the open tab
+//                                                                     already on that site, e.g. after a "Sign in with LINE" click), fill, submit
 //   {mode:"code",  url, code}                                          type a 2FA code into the open tab for url's site
 // A value is only typed when the page is https and on the saved site (same host, or a subdomain of it).
 // Env: BWL_CDP (default http://127.0.0.1:18800), BWL_ALLOW_HTTP_LOCAL=1 (tests: allow http on 127.0.0.1/localhost)
@@ -110,9 +111,21 @@ if (job.mode === 'code') {
   out(await outcome());
 }
 
-// login: new tab on the saved url
-targetId = (await send('Target.createTarget', { url: job.url })).targetId;
-sid = (await send('Target.attachToTarget', { targetId, flatten: true })).sessionId;
+// login: new tab on the saved url, or (here) the newest open tab on the saved site that shows a login form
+if (job.here) {
+  const tabs = (await send('Target.getTargets')).targetInfos.filter(t => t.type === 'page' && siteOk(t.url)).reverse();
+  for (const t of tabs) {
+    targetId = t.targetId;
+    sid = (await send('Target.attachToTarget', { targetId, flatten: true })).sessionId;
+    const s = await scan().catch(() => ({}));
+    if (s.user || s.pass) break;
+    sid = null;
+  }
+  if (!sid) out({ ok: false, status: 'no-tab', hint: 'no open tab on that site with a login form; click the site\'s sign-in button first' });
+} else {
+  targetId = (await send('Target.createTarget', { url: job.url })).targetId;
+  sid = (await send('Target.attachToTarget', { targetId, flatten: true })).sessionId;
+}
 await send('Page.bringToFront', {}, sid).catch(() => {});
 let s = await waitFor(s => s.ready && (s.user || s.pass), 20000);
 if (!s) out({ ok: false, status: 'no-form', at: where(await href()).slice(0, 200), targetId, hint: 'no login form found (already logged in? or add claw-user/claw-pass hints)' });

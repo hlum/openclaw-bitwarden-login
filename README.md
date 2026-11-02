@@ -67,7 +67,7 @@ This runs the filler against a fake login site in the real OpenClaw browser: one
 ## Limits
 
 - Logins inside iframes and passkey-only sites are not supported. CAPTCHAs need you once.
-- "Sign in with Google/Apple" works only if that login is saved too.
+- Social logins ("Sign in with Google/LINE/…"): the agent asks you which one you use and saves only that provider's login. It clicks the button, then `bwl.sh login <provider> --here` fills the provider page.
 - macOS only (Keychain, `osascript`).
 
 > Automated logins can break a site's terms of service. Use it for your own accounts.

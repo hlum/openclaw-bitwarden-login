@@ -1,7 +1,8 @@
 #!/bin/zsh
 # bwl.sh: let an OpenClaw agent log in to sites with passwords it never sees. Backed by a Bitwarden vault for the agent.
 #   bwl.sh list                       sites the agent may log in to (names and hosts only)
-#   bwl.sh login <site>               open the saved login page in the OpenClaw browser, fill it, submit
+#   bwl.sh login <site> [--here]      open the saved login page in the OpenClaw browser, fill it, submit
+#                                     --here: fill the tab already open on that site (social login: after clicking "Sign in with <site>")
 #   bwl.sh code <site> <code>         type a 2FA code the human gave you into that site's open tab
 #   bwl.sh add <site> <https-url> [username] [--local]
 #                                     ask the human to save a login: prints a one-time link (tailnet only, 10 min);
@@ -63,7 +64,7 @@ login)
   unlock
   it=$(item) || { print -r -- $it; exit 1 }
   relock
-  res=$(print -r -- $it | jq -c '{mode: "login", url: .login.uris[0].uri, username: (.login.username // ""), password: (.login.password // ""),
+  res=$(print -r -- $it | jq -c --argjson here $([[ ${3:-} == --here ]] && echo true || echo false) '{mode: "login", here: $here, url: .login.uris[0].uri, username: (.login.username // ""), password: (.login.password // ""),
       hints: ((.fields // []) | map(select(.name | startswith("claw-"))) | map({key: (.name | ltrimstr("claw-")), value}) | from_entries)}' \
     | node $DIR/fill.mjs)
   it=''
@@ -94,12 +95,12 @@ add)
   host=$(tailscale status --json 2>/dev/null | jq -r 'select(.BackendState == "Running") | .Self.DNSName // empty' | sed 's/\.$//')
   [[ -n $host ]] || die no-tailscale "Tailscale is not running; use --local at the Mac, or the human adds it in the Bitwarden app (folder \"$FOLDER\")"
   key=$(openssl rand -hex 24); mnt=/bwl-$(openssl rand -hex 6); pf=$(mktemp -t bwl)
-  # server + cleanup run detached: the mount is removed when the page is used or expires
-  ( BWL_KEY=$key BWL_SAVE="${0:A} _save" node $DIR/add-server.mjs $site $url $user $pf
-    tailscale serve --https=$TSPORT --set-path $mnt off >/dev/null 2>&1; rm -f $pf ) >/dev/null 2>&1 &!
+  # the server detaches itself and removes the mount when the page is used or expires
+  BWL_KEY=$key BWL_SAVE="${0:A} _save" BWL_MNT=$mnt BWL_TS_PORT=$TSPORT node $DIR/add-server.mjs $site $url $user $pf
   for i in {1..50}; do [[ -s $pf ]] && break; sleep 0.1; done
   [[ -s $pf ]] || die server-failed
-  tailscale serve --bg --https=$TSPORT --set-path $mnt http://127.0.0.1:$(<$pf) >/dev/null 2>&1 || die tailscale-serve-failed
+  port=$(<$pf); rm -f $pf
+  tailscale serve --bg --https=$TSPORT --set-path $mnt http://127.0.0.1:$port >/dev/null 2>&1 || die tailscale-serve-failed
   jq -cn --arg l "https://$host:$TSPORT$mnt?k=$key" '{ok:true, status:"link", link:$l, expires:"10 min, one use",
     hint:"send the link to the human; only devices on their tailnet can open it. Do not open it yourself."}'
   log link ;;

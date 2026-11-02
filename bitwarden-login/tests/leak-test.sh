@@ -20,6 +20,10 @@ check "one-page login submits"        '[[ $(jq -r .status <<< $r) == logged-in ]
 r=$(jq -cn --arg u $B/two --arg p $PW '{mode:"login", url:$u, username:"tester", password:$p}' | run)
 check "two-step login submits"        '[[ $(jq -r .status <<< $r) == logged-in ]] && grep -q "/done password=$PW" $tmp/record'
 
+curl -s -X PUT "${BWL_CDP:-http://127.0.0.1:18800}/json/new?$B/one" >/dev/null; sleep 2   # a tab "after a Sign in with … click"
+r=$(jq -cn --arg u $B/somewhere --arg p $PW '{mode:"login", url:$u, username:"tester", password:$p, here:true}' | run)
+check "--here fills the open tab"     '[[ $(jq -r .status <<< $r) == logged-in ]] && [[ $(grep -c "/done username=tester&password=$PW" $tmp/record) == 2 ]]'
+
 r=$(jq -cn --arg u $B/otp --arg p $PW '{mode:"login", url:$u, username:"tester", password:$p}' | run)
 check "2FA page is reported"          '[[ $(jq -r .status <<< $r) == needs-code ]]'
 r=$(jq -cn --arg u $B/otp '{mode:"code", url:$u, code:"123456"}' | run)

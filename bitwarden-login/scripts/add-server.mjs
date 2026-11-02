@@ -1,12 +1,17 @@
 // One-time "save a login" page. Started by `bwl.sh add`; serves one form, accepts one submit, then exits.
 //   node add-server.mjs <site> <url> <username|-> <port-file>
-// Env: BWL_KEY (random key the page URL must carry), BWL_TTL (seconds, default 600), BWL_SAVE (command that reads the JSON on stdin)
-// Listens on 127.0.0.1 only; `bwl.sh add` publishes it on the tailnet with `tailscale serve` and removes that when this exits.
+// Env: BWL_KEY (random key the page URL must carry), BWL_TTL (seconds, default 600), BWL_SAVE (command that reads the JSON on stdin),
+//      BWL_MNT + BWL_TS_PORT (the `tailscale serve` path `bwl.sh add` publishes; removed here on exit)
+// Listens on 127.0.0.1 only. Re-launches itself detached, so it outlives the agent's or cron job's process group.
 import http from 'node:http';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { timingSafeEqual } from 'node:crypto';
 
+if (!process.env.BWL_DETACHED) {
+  spawn(process.execPath, process.argv.slice(1), { detached: true, stdio: 'ignore', env: { ...process.env, BWL_DETACHED: '1' } }).unref();
+  process.exit(0);
+}
 const [site, url, user, portFile] = process.argv.slice(2);
 const KEY = Buffer.from(process.env.BWL_KEY || '');
 if (KEY.length < 32) { console.error('BWL_KEY missing'); process.exit(2); }
@@ -23,7 +28,11 @@ label{display:block;margin:16px 0 4px;font-weight:600}input{width:100%;box-sizin
 button{margin-top:24px;width:100%;padding:12px;font-size:17px;border:0;border-radius:8px;background:#175ddc;color:#fff}.m{color:#888;font-size:14px}</style>${body}`;
 
 let done = false;
-const finish = () => { done = true; setTimeout(() => process.exit(0), 300); };
+const finish = () => {
+  done = true;
+  if (process.env.BWL_MNT) try { execFileSync('tailscale', ['serve', `--https=${process.env.BWL_TS_PORT || 8443}`, '--set-path', process.env.BWL_MNT, 'off'], { stdio: 'ignore' }); } catch {}
+  setTimeout(() => process.exit(0), 300);
+};
 setTimeout(finish, (Number(process.env.BWL_TTL) || 600) * 1000).unref();
 
 const server = http.createServer((req, res) => {

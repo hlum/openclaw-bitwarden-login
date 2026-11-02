@@ -20,6 +20,7 @@ Tailscale is needed only for the save-a-login link. Scripts live next to this fi
 ```sh
 scripts/bwl.sh list                          # [{site, host}]: what you can log in to
 scripts/bwl.sh login <site>                  # opens a new tab on the saved login page, fills it, submits
+scripts/bwl.sh login <provider> --here       # social login: fills the provider's page already open in a tab
 scripts/bwl.sh code <site> <digits>          # types the 2FA code the user gave you into that site's tab
 scripts/bwl.sh add <site> <https-login-url> [username]   # one-time link for the user to save a login
 scripts/bwl.sh add <site> <https-login-url> [username] --local   # macOS password dialog instead (user at the Mac)
@@ -38,6 +39,15 @@ Every command prints one JSON line: `{ok, status, at?, targetId?, hint?}`. After
 | `host-changed` | That name is saved for another site. Tell the user; don't pick a new name to get around it. |
 | `unknown-site` | Not saved yet. Offer `add`. |
 | `not-set-up`, `unlock-failed` | The user must run `bwl.sh setup` in a terminal. |
+
+## Sites with social login
+
+If a site offers "Sign in with Google / LINE / Apple / Yahoo / Facebook…", **ask the user which way they sign in there** before saving anything.
+- They use a provider: save only **that provider's** login (site name = provider, e.g. `line`, `google`, with the provider's own login page as the URL).
+  Note in memory which provider each site uses ("tabelog: LINE"). Don't save a password for the site itself.
+- To log in: open the site, click its "Sign in with <provider>" button with the browser tools, then `bwl.sh login <provider> --here`.
+  That fills the provider page already open (only if it really is the provider's site), and the provider sends the browser back to the site.
+- They use email + password on the site: save the site normally.
 
 ## Saving a login
 
