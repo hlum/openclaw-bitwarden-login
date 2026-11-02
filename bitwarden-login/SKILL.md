@@ -56,7 +56,8 @@ If a site offers "Sign in with Google / LINE / Apple / Yahoo / Facebook…", **a
 
 1. Find the site's real login page URL (https). Pick a short site name (`netflix`, `amazon-jp`).
 2. Run `bwl.sh add <site> <url> [username]`. Send the user the `link` with one line: "Open this to save your <site> login; works once, 10 min." **Do not open the link yourself.**
-3. The user saves it on the page. You will not get a message; when they say done, check `bwl.sh list` or just log in.
+3. When the user saves it, you are woken with "bitwarden-login: the user just saved the "<site>" login". Carry on with the task right away (log in); don't wait for them to say done.
+   If they say done but no wake came, check `bwl.sh list`.
 
 Without Tailscale: use `--local` when the user is at the Mac, or tell them to add the login in the Bitwarden app, in the `claw` folder, with the login page as the website.
 

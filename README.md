@@ -7,6 +7,7 @@ Lets an [OpenClaw](https://github.com/openclaw/openclaw) agent log in to website
 - **Use, but never see.** `bwl.sh login netflix` takes the login from Bitwarden and types it straight into the OpenClaw browser. The agent only gets `{"status":"logged-in"}`. There is no command that shows a password.
 - **Only on the right site.** A password is typed only if the page is https and on the host saved with it (or a subdomain of it). If a message tricks the agent into opening a look-alike page, nothing is typed.
 - **Save without chat.** `bwl.sh add netflix https://www.netflix.com/login` gives the agent a one-time link to send you. You open it on your phone, type the password into a normal password field, and it goes straight into the vault.
+- **Picks up where it left off.** When you save the login, the agent is woken and carries on with the task, so you don't have to tell it you're done.
 - **2FA stays with you.** When a site asks for a code, the agent asks you for it. 2FA secrets are never stored.
 
 ## How it keeps passwords away from the agent
@@ -54,7 +55,7 @@ $S/bwl.sh add netflix https://www.netflix.com/login    # one-time link for you
 
 Most sites need nothing extra, including two-step logins (email page, then password page). For an odd login page, add custom fields to the item in Bitwarden: `claw-user`, `claw-pass`, `claw-next`, with CSS selectors as values.
 
-Settings (env): `BWL_FOLDER` (`claw`), `BWL_LOG`, `BWL_CDP`, `BWL_TS_PORT` (tailnet port for the save page, `8443`).
+Settings (env): `BWL_WAKE` (`1`: wake the agent after a save, `0` off), `BWL_FOLDER` (`claw`), `BWL_LOG`, `BWL_CDP`, `BWL_TS_PORT` (tailnet port for the save page, `8443`).
 
 ## Test
 

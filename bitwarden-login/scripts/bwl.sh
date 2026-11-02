@@ -10,7 +10,7 @@
 #   bwl.sh setup                      one-time, run by the human in a terminal: bw login + save the unlock password to the Keychain
 # Only items in the Bitwarden folder "claw" are used. Nothing here prints, logs or passes a password on a command line:
 # secrets move through pipes only (no here-strings: zsh writes those to temp files).
-# Env: BWL_FOLDER (claw), BWL_TS_PORT (8443), BWL_LOG (~/.openclaw/workspace/data/bitwarden-login.log), BWL_CDP (browser debug URL)
+# Env: BWL_FOLDER (claw), BWL_TS_PORT (8443), BWL_WAKE (1: wake the agent after a save), BWL_LOG (~/.openclaw/workspace/data/bitwarden-login.log), BWL_CDP (browser debug URL)
 set -u
 export PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
 DIR=${0:A:h}
@@ -125,7 +125,10 @@ _save)   # internal: one line of login JSON on stdin {site,url,username,password
       | bw encode | bw create item >/dev/null 2>&1 || die save-failed
   fi
   in=''
-  log saved ;;
+  log saved
+  # wake the agent so it carries on with whatever was waiting for this login (BWL_WAKE=0 turns this off)
+  [[ ${BWL_WAKE:-1} == 1 ]] && openclaw system event --mode now --text "bitwarden-login: the user just saved the \"$site\" login with the one-time link. If you were waiting for it, continue now (bwl.sh login $site); otherwise just confirm it is saved in one line." >/dev/null 2>&1
+  : ;;
 
 setup)
   [[ -t 0 ]] || die usage "run bwl.sh setup yourself in a terminal (it asks for passwords)"
