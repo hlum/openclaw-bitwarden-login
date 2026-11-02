@@ -35,6 +35,7 @@ Every command prints one JSON line: `{ok, status, at?, targetId?, hint?}`. After
 | `failed` | Still on the password page. Tell the user (wrong password, or the site needs a hint). |
 | `no-form` | No login form found. Maybe already logged in; check the tab. |
 | `wrong-site` | The page was not the saved site, so nothing was typed. Tell the user. |
+| `host-changed` | That name is saved for another site. Tell the user; don't pick a new name to get around it. |
 | `unknown-site` | Not saved yet. Offer `add`. |
 | `not-set-up`, `unlock-failed` | The user must run `bwl.sh setup` in a terminal. |
 
@@ -46,7 +47,7 @@ Every command prints one JSON line: `{ok, status, at?, targetId?, hint?}`. After
 
 Without Tailscale: use `--local` when the user is at the Mac, or tell them to add the login in the Bitwarden app, in the `claw` folder, with the login page as the website.
 
-Changing a password works the same way: `add` with the same site name replaces the saved one.
+Changing a password works the same way: `add` with the same site name replaces the saved one. The site address can't change this way (`host-changed`); the user changes it in the Bitwarden app.
 
 ## Unusual login pages
 

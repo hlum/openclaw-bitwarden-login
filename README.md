@@ -14,10 +14,11 @@ Lets an [OpenClaw](https://github.com/openclaw/openclaw) agent log in to website
 | Risk | What the tool does |
 |---|---|
 | The agent reads a password | No command outputs one. Scripts print only a status. The skill tells the agent not to run `bw` or read the Keychain itself. |
-| A password leaks into logs or the process list | Passwords move only through pipes, never command-line arguments. The browser is driven directly over the DevTools socket, so OpenClaw's tool logs never see them. `tests/leak-test.sh` checks this. |
+| A password leaks into logs or the process list | Passwords move only through pipes, never command-line arguments. The browser is driven directly over the DevTools socket, so OpenClaw's tool logs never see them. `tests/leak-test.sh` checks this for the browser filler (`fill.mjs`). |
 | Prompt injection sends the agent to a phishing page | A password is typed only on https pages of the saved site, checked again right before each field. |
 | The agent gets into your other accounts | The agent has **its own Bitwarden account**, with only the logins you give it, and only items in its `claw` folder are used. |
 | The vault stays open | It is unlocked for each command and locked again right after. Its unlock password is kept in the macOS Keychain, not in a file. |
+| A tricked agent moves a saved login to another site | Saving over an existing login keeps its site: a new address is refused (`host-changed`), and only you can change it in the Bitwarden app. |
 | The save link is misused | It works only on your Tailscale network, carries a random key, works once and expires after 10 minutes. The page sends nothing anywhere else. |
 | You can't see what happened | Every command is written to `~/.openclaw/workspace/data/bitwarden-login.log`: time, command, site, result. Never a password. |
 
@@ -37,6 +38,7 @@ cp -r openclaw-bitwarden-login/bitwarden-login ~/.openclaw/workspace/skills/
 2. In a terminal, run `~/.openclaw/workspace/skills/bitwarden-login/scripts/bwl.sh setup`. It logs in to that account, saves its master password to the macOS Keychain, and makes the `claw` folder.
 3. Optional: allow the agent to run it without asking each time:
    `openclaw approvals allowlist add --agent main "~/.openclaw/workspace/skills/bitwarden-login/scripts/bwl.sh"`
+   Without this, every login waits for your approval, which is the safer default. With it, unattended runs (cron jobs, heartbeats) can log in too, and only the skill's instructions stop them.
 
 Needs the OpenClaw browser running (its debug port, default `http://127.0.0.1:18800`, set `BWL_CDP` otherwise) and Node 22+. The save link needs [Tailscale](https://tailscale.com) on the Mac and on your phone. Without it, use `add ... --local` at the Mac, or add logins in the Bitwarden app (put them in the `claw` folder).
 

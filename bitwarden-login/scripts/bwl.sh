@@ -19,6 +19,8 @@ LOG=${BWL_LOG:-$HOME/.openclaw/workspace/data/bitwarden-login.log}
 TSPORT=${BWL_TS_PORT:-8443}   # tailnet https port for the add page (443 is often taken by other serve configs)
 LOCKDIR=${TMPDIR:-/tmp}/bwl.lock
 cmd=${1:-help}; site=${2:-}
+unlocked=0
+trap '(( unlocked )) && { bw lock >/dev/null 2>&1; rmdir $LOCKDIR 2>/dev/null }' EXIT   # top level: a trap set in a function fires when it returns
 
 log() { mkdir -p ${LOG:h}; print -r -- "$(date '+%F %T')	$cmd	${site:--}	$1" >> $LOG }
 die() { jq -cn --arg s $1 --arg h ${2:-} '{ok:false, status:$s} + (if $h != "" then {hint:$h} else {} end)'; log $1; exit 1 }
@@ -31,7 +33,7 @@ unlock() {
     (( i == 60 )) && die busy "another bwl.sh run is using the vault; try again"
     sleep 1
   done
-  trap 'bw lock >/dev/null 2>&1; rmdir $LOCKDIR 2>/dev/null' EXIT
+  unlocked=1
   [[ $(bw status 2>/dev/null | jq -r .status) == unauthenticated ]] && die not-set-up "the human must run: bwl.sh setup"
   export BW_SESSION=$(BWL_PW=$(security find-generic-password -s $KC -w 2>/dev/null) bw unlock --passwordenv BWL_PW --raw 2>/dev/null)
   [[ -n $BW_SESSION ]] || die unlock-failed "unlock password in the Keychain is missing or wrong: the human must run bwl.sh setup"
@@ -110,7 +112,10 @@ _save)   # internal: one line of login JSON on stdin {site,url,username,password
   [[ -n $fid ]] || fid=$(jq -cn --arg f $FOLDER '{name:$f}' | bw encode | bw create folder 2>/dev/null | jq -r .id)
   [[ -n $fid ]] || die save-failed "could not create the \"$FOLDER\" folder"
   id=$(bw list items --folderid $fid 2>/dev/null | jq -r --arg s ${site:l} '[.[] | select(.type == 1 and (.name | ascii_downcase) == $s)][0].id // empty')
-  if [[ -n $id ]]; then   # changing a saved login (the human typed it in the form)
+  if [[ -n $id ]]; then   # changing a saved login (the human typed it in the form); its site stays fixed
+    h() { jq -r "$1" | sed -E 's|^[a-z]+://||; s|[/:?#].*||; s|^www\.||' }
+    old=$(bw get item $id 2>/dev/null | h '.login.uris[0].uri // ""'); new=$(print -r -- $in | h .url)
+    [[ $old == $new ]] || die host-changed "\"$site\" is saved for $old, not $new; to really move it, change the website in the Bitwarden app"
     { bw get item $id 2>/dev/null; print -r -- $in } | jq -cs '.[0] * {login: {username: .[1].username, password: .[1].password, uris: [{match: null, uri: .[1].url}]}}' \
       | bw encode | bw edit item $id >/dev/null 2>&1 || die save-failed
   else
