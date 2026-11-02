@@ -61,7 +61,7 @@ const server = http.createServer((req, res) => {
     res.end(page('Received', `<h2>Received ✓</h2><p>Saving ${esc(site)} to the vault now. You'll get a confirmation in chat. You can close this page.`));
     save.on('exit', code => {
       if (code !== 0 && process.env.BWL_WAKE !== '0')
-        spawn('openclaw', ['system', 'event', '--mode', 'now', '--text', `bitwarden-login: saving the "${site}" login from the one-time link FAILED. Tell the user and offer a new link (bwl.sh add).`], { stdio: 'ignore', detached: true }).unref();
+        spawn('openclaw', ['system', 'event', '--mode', 'now', '--text', `bitwarden-login: saving the "${site}" login from the one-time link FAILED. Tell the user (in the chat thread where they asked) and offer a new link (bwl.sh add).`], { stdio: 'ignore', detached: true }).unref();
       finish();
     });
   });
