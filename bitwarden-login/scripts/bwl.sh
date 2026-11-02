@@ -127,7 +127,8 @@ _save)   # internal: one line of login JSON on stdin {site,url,username,password
   in=''
   log saved
   # wake the agent so it carries on with whatever was waiting for this login (BWL_WAKE=0 turns this off)
-  [[ ${BWL_WAKE:-1} == 1 ]] && openclaw system event --mode now --text "bitwarden-login: the user just saved the \"$site\" login with the one-time link. If you were waiting for it, continue now (bwl.sh login $site); otherwise just confirm it is saved in one line." >/dev/null 2>&1
+  # in the background: the save page waits for this script, and a busy agent can take minutes to accept the wake
+  [[ ${BWL_WAKE:-1} == 1 ]] && { openclaw system event --mode now --text "bitwarden-login: the user just saved the \"$site\" login with the one-time link. If you were waiting for it, continue now (bwl.sh login $site); otherwise just confirm it is saved in one line." >/dev/null 2>&1 &! }
   : ;;
 
 setup)
