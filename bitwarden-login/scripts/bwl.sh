@@ -129,7 +129,7 @@ _save)   # internal: one line of login JSON on stdin {site,url,username,password
 setup)
   [[ -t 0 ]] || die usage "run bwl.sh setup yourself in a terminal (it asks for passwords)"
   print "1/3 Log in to the Bitwarden account made for the agent (not your personal one)."
-  [[ $(bw status | jq -r .status) == unauthenticated ]] && { bw login || exit 1 }
+  [[ $(bw status | jq -r .status) == unauthenticated ]] && { bw login || exit 1; print "(Ignore the session key above: it stops working when setup locks the vault. Don't paste it anywhere.)" }
   print "2/3 Type that account's master password again; it is saved only to the macOS Keychain (item \"$KC\")."
   security add-generic-password -U -s $KC -a bitwarden -T /usr/bin/security -w || exit 1
   print "3/3 Checking unlock..."
