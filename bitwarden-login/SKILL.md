@@ -50,6 +50,7 @@ If a site offers "Sign in with Google / LINE / Apple / Yahoo / Facebook…", **a
 - To log in: open the site, click its "Sign in with <provider>" button with the browser tools, then `bwl.sh login <provider> --here`.
   That fills the provider page already open (only if it really is the provider's site), and the provider sends the browser back to the site.
 - They use email + password on the site: save the site normally.
+- Google (and Apple) refuse sign-ins from an automated browser: the account chooser ignores clicks. Don't keep retrying; ask the user to click it themselves (screen sharing).
 
 ## Saving a login
 
