@@ -43,6 +43,8 @@ Every command prints one JSON line: `{ok, status, at?, targetId?, hint?}`. After
 ## Sites with social login
 
 If a site offers "Sign in with Google / LINE / Apple / Yahoo / Facebook…", **ask the user which way they sign in there** before saving anything.
+- They use a provider and the browser is already signed in to it: nothing to save. Click the button and pick the account.
+- Don't offer to save the user's main email account (Google, Apple, Microsoft): it is the password-reset key for everything else. Only save it if the user insists.
 - They use a provider: save only **that provider's** login (site name = provider, e.g. `line`, `google`, with the provider's own login page as the URL).
   Note in memory which provider each site uses ("tabelog: LINE"). Don't save a password for the site itself.
 - To log in: open the site, click its "Sign in with <provider>" button with the browser tools, then `bwl.sh login <provider> --here`.
