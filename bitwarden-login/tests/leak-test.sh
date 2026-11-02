@@ -36,6 +36,9 @@ check "redirect to another host is refused, nothing typed" '[[ $(jq -r .status <
 r=$(jq -cn --arg u $B/one --arg p $PW '{mode:"login", url:$u, username:"tester", password:$p}' | node $FILL | tee -a $tmp/stdout)
 check "plain http is refused, nothing typed" '[[ $(jq -r .status <<< $r) == wrong-site && ! -s $tmp/record ]]'
 
+r=$(jq -cn --arg u $B/error --arg p $PW '{mode:"login", url:$u, username:"tester", password:$p}' | run)
+check "error page: no-form with page text, tab closed" '[[ $(jq -r .status <<< $r) == no-form && $(jq -r .page <<< $r) == "Error | システムエラーが発生いたしました。" ]] && ! curl -s ${BWL_CDP:-http://127.0.0.1:18800}/json/list | grep -q "$B/error"'
+
 # leak scan: the password must appear only in the fake site's record
 check "password not in fill.mjs output"   '! grep -q $PW $tmp/stdout'
 check "password not in OpenClaw logs"     '! grep -rqs $PW /tmp/openclaw/'

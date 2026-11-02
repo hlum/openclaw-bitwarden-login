@@ -3,6 +3,7 @@
 #   bwl.sh list                       sites the agent may log in to (names and hosts only)
 #   bwl.sh login <site> [--here]      open the saved login page in the OpenClaw browser, fill it, submit
 #                                     --here: fill the tab already open on that site (social login: after clicking "Sign in with <site>")
+#   bwl.sh check <site>               open the saved login page and report what is on it (fields found, where it landed); types nothing
 #   bwl.sh code <site> <code>         type a 2FA code the human gave you into that site's open tab
 #   bwl.sh add <site> <https-url> [username] [--local]
 #                                     ask the human to save a login: prints a one-time link (tailnet only, 10 min);
@@ -42,6 +43,13 @@ unlock() {
   fid=$(bw list folders --search $FOLDER 2>/dev/null | jq -r --arg f $FOLDER '[.[] | select(.name == $f)][0].id // empty')
 }
 relock() { bw lock >/dev/null 2>&1; unset BW_SESSION }
+# start the OpenClaw browser if it isn't running (its debug port answers within ~20 s)
+browser() {
+  local cdp=${BWL_CDP:-http://127.0.0.1:18800}
+  curl -sf -m 2 $cdp/json/version >/dev/null && return
+  openclaw browser start >/dev/null 2>&1
+  for i in {1..20}; do curl -sf -m 2 $cdp/json/version >/dev/null && return; sleep 1; done
+}
 
 # the vault item for $site (name match, case-insensitive) as JSON; dies if missing
 item() {
@@ -64,12 +72,25 @@ login)
   unlock
   it=$(item) || { print -r -- $it; exit 1 }
   relock
+  browser
   res=$(print -r -- $it | jq -c --argjson here $([[ ${3:-} == --here ]] && echo true || echo false) '{mode: "login", here: $here, url: .login.uris[0].uri, username: (.login.username // ""), password: (.login.password // ""),
       hints: ((.fields // []) | map(select(.name | startswith("claw-"))) | map({key: (.name | ltrimstr("claw-")), value}) | from_entries)}' \
     | node $DIR/fill.mjs)
   it=''
   print -r -- $res
   log $(jq -r .status <<< $res) ;;
+
+check)
+  [[ -n $site ]] || die usage "bwl.sh check <site>"
+  unlock
+  it=$(item) || { print -r -- $it; exit 1 }
+  relock
+  browser
+  res=$(print -r -- $it | jq -c '{mode: "check", url: .login.uris[0].uri,
+      hints: ((.fields // []) | map(select(.name | startswith("claw-"))) | map({key: (.name | ltrimstr("claw-")), value}) | from_entries)}' | node $DIR/fill.mjs)
+  it=''
+  print -r -- $res
+  log "$(jq -r '"\(.at) user=\(.user) pass=\(.pass)"' <<< $res)" ;;
 
 code)
   [[ -n $site && ${3:-} == <-> ]] || die usage "bwl.sh code <site> <digits>"

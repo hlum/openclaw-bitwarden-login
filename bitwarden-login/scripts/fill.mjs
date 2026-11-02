@@ -2,6 +2,7 @@
 // Reads one JSON object on stdin, prints one JSON result on stdout. Secrets never go to argv, stdout or logs.
 //   {mode:"login", url, username, password, hints:{user,pass,next}, here?}   open url in a new tab (here: use the open tab
 //                                                                     already on that site, e.g. after a "Sign in with LINE" click), fill, submit
+//   {mode:"check", url, hints}                                         open url, report what the page shows, type nothing, close the tab
 //   {mode:"code",  url, code}                                          type a 2FA code into the open tab for url's site
 // A value is only typed when the page is https and on the saved site (same host, or a subdomain of it).
 // Env: BWL_CDP (default http://127.0.0.1:18800), BWL_ALLOW_HTTP_LOCAL=1 (tests: allow http on 127.0.0.1/localhost)
@@ -22,6 +23,7 @@ function siteOk(href) {
   const local = process.env.BWL_ALLOW_HTTP_LOCAL === '1' && u.protocol === 'http:' && /^(127\.0\.0\.1|localhost)$/.test(u.hostname);
   return (u.protocol === 'https:' || local) && (u.hostname === base || u.hostname.endsWith('.' + base));
 }
+const closeTab = () => targetId && send('Target.closeTarget', { targetId }).catch(() => {});
 const where = href => { try { const u = new URL(href); return u.hostname + u.pathname; } catch { return ''; } };
 
 // --- CDP plumbing (flat sessions over the browser websocket)
@@ -56,7 +58,8 @@ const scan = async () => evaluate(`() => {
   user && user.setAttribute('data-bwl', 'u'); pass && pass.setAttribute('data-bwl', 'p');
   code && code.setAttribute('data-bwl', 'c'); next && next.setAttribute('data-bwl', 'n');
   const captcha = !!document.querySelector('iframe[src*="recaptcha"],iframe[src*="hcaptcha"],iframe[src*="challenges.cloudflare"],iframe[src*="arkoselabs"]');
-  return { user: !!user, pass: !!pass, code: !!code && !pass, next: !!next, captcha, ready: document.readyState === 'complete' };
+  return { user: !!user, pass: !!pass, code: !!code && !pass, next: !!next, captcha, ready: document.readyState !== 'loading',
+    page: (document.title + ' | ' + (document.body?.innerText || '')).replace(/\\s+/g, ' ').slice(0, 160) };
 }`);
 
 // focus a marked field and type into it, re-checking the site right before the value is sent
@@ -128,8 +131,16 @@ if (job.here) {
 }
 await send('Page.bringToFront', {}, sid).catch(() => {});
 let s = await waitFor(s => s.ready && (s.user || s.pass), 20000);
-if (!s) out({ ok: false, status: 'no-form', at: where(await href()).slice(0, 200), targetId, hint: 'no login form found (already logged in? or add claw-user/claw-pass hints)' });
-if (!siteOk(await href())) out({ ok: false, status: 'wrong-site', at: where(await href()), hint: 'login page redirected off the saved site; nothing was typed' });
+if (job.mode === 'check') {
+  const r = { ok: !!s, status: 'check', at: where(await href()), onSite: siteOk(await href()), ...(s || await scan()) };
+  await send('Target.closeTarget', { targetId }); out(r);
+}
+if (!s) {
+  const p = await scan().catch(() => ({})), at = where(await href());
+  await closeTab();
+  out({ ok: false, status: 'no-form', at, page: p.page, hint: 'no login form on that page. Read "page": already logged in, an error page (the saved URL may be wrong: check it and have the user re-save with the real login page), or the form needs claw-user/claw-pass hints' });
+}
+if (!siteOk(await href())) { const at = where(await href()); await closeTab(); out({ ok: false, status: 'wrong-site', at, hint: 'login page redirected off the saved site; nothing was typed' }); }
 
 if (s.user && job.username) await type('u', job.username);
 if (!s.pass) {                                   // two-step: username, then the password page

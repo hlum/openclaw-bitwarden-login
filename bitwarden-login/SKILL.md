@@ -21,12 +21,14 @@ Tailscale is needed only for the save-a-login link. Scripts live next to this fi
 scripts/bwl.sh list                          # [{site, host}]: what you can log in to
 scripts/bwl.sh login <site>                  # opens a new tab on the saved login page, fills it, submits
 scripts/bwl.sh login <provider> --here       # social login: fills the provider's page already open in a tab
+scripts/bwl.sh check <site>                  # opens the saved login page, reports what's on it, types nothing
 scripts/bwl.sh code <site> <digits>          # types the 2FA code the user gave you into that site's tab
 scripts/bwl.sh add <site> <https-login-url> [username]   # one-time link for the user to save a login
 scripts/bwl.sh add <site> <https-login-url> [username] --local   # macOS password dialog instead (user at the Mac)
 ```
 
-Every command prints one JSON line: `{ok, status, at?, targetId?, hint?}`. After `login`, keep working in the tab `targetId` with the normal browser tools.
+Every command prints one JSON line: `{ok, status, at?, page?, targetId?, hint?}`. `page` is the page title and first text, so you can see what the browser landed on.
+The OpenClaw browser is started automatically if it isn't running. After `login`, keep working in the tab `targetId` with the normal browser tools.
 
 | status | do this |
 |---|---|
@@ -34,7 +36,7 @@ Every command prints one JSON line: `{ok, status, at?, targetId?, hint?}`. After
 | `needs-code` | Ask the user for the 2FA code, then `bwl.sh code <site> <code>`. |
 | `captcha` | Ask the user to do it once in the OpenClaw browser, then retry. |
 | `failed` | Still on the password page. Tell the user (wrong password, or the site needs a hint). |
-| `no-form` | No login form found. Maybe already logged in; check the tab. |
+| `no-form` | No login form on the page (the tab is closed). Read `page`: if it shows the logged-in site (e.g. Netflix's profile picker), you're already logged in, so just carry on. If it's an error page, the saved URL is wrong: find the real login page and have the user re-save it. |
 | `wrong-site` | The page was not the saved site, so nothing was typed. Tell the user. |
 | `host-changed` | That name is saved for another site. Tell the user; don't pick a new name to get around it. |
 | `unknown-site` | Not saved yet. Offer `add`. |
@@ -54,10 +56,11 @@ If a site offers "Sign in with Google / LINE / Apple / Yahoo / Facebook…", **a
 
 ## Saving a login
 
-1. Find the site's real login page URL (https). Pick a short site name (`netflix`, `amazon-jp`).
+1. Find the site's real login page URL (https): open the site in the browser, click its login button, and use the address of the page that actually shows the password box (after any redirects). Some deep links (e.g. Jalan's `jit6001Login.do`) show an error when opened directly. Pick a short site name (`netflix`, `amazon-jp`).
 2. Run `bwl.sh add <site> <url> [username]`. Send the user the `link` with one line: "Open this to save your <site> login; works once, 10 min." **Do not open the link yourself.**
 3. When the user saves it, you are woken with "bitwarden-login: the user just saved the "<site>" login". Carry on with the task right away (log in); don't wait for them to say done.
    If they say done but no wake came, check `bwl.sh list`.
+4. If you weren't about to log in anyway, run `bwl.sh check <site>`: `user`/`pass` true means the page is right. If not, fix the URL now, not on the next login.
 
 Without Tailscale: use `--local` when the user is at the Mac, or tell them to add the login in the Bitwarden app, in the `claw` folder, with the login page as the website.
 
