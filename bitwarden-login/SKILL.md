@@ -59,6 +59,7 @@ If a site offers "Sign in with Google / LINE / Apple / Yahoo / Facebook…", **a
 1. Find the site's real login page URL (https): open the site in the browser, click its login button, and use the address of the page that actually shows the password box (after any redirects). Some deep links (e.g. Jalan's `jit6001Login.do`) show an error when opened directly. Pick a short site name (`netflix`, `amazon-jp`).
 2. Run `bwl.sh add <site> <url> [username]`. Send the user the `link` with one line: "Open this to save your <site> login; works once, 10 min." **Do not open the link yourself.**
 3. When the user saves it, you are woken with "bitwarden-login: the user just saved the "<site>" login". Carry on with the task right away (log in); don't wait for them to say done.
+   The page only says "Received", so your one-line confirmation is how they know it worked. If you're woken with "…FAILED", tell them and offer a new link.
    If they say done but no wake came, check `bwl.sh list`.
 4. If you weren't about to log in anyway, run `bwl.sh check <site>`: `user`/`pass` true means the page is right. If not, fix the URL now, not on the next login.
 

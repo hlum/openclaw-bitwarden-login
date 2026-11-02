@@ -28,12 +28,13 @@ label{display:block;margin:16px 0 4px;font-weight:600}input{width:100%;box-sizin
 button{margin-top:24px;width:100%;padding:12px;font-size:17px;border:0;border-radius:8px;background:#175ddc;color:#fff}.m{color:#888;font-size:14px}</style>${body}`;
 
 let done = false;
-const finish = () => {
-  done = true;
+// remove the tailnet route a few seconds after the last reply, so the reply can get through the proxy first
+const finish = () => { done = true; setTimeout(cleanup, 3000); };
+const cleanup = () => {
   if (process.env.BWL_MNT) try { execFileSync('tailscale', ['serve', `--https=${process.env.BWL_TS_PORT || 8443}`, '--set-path', process.env.BWL_MNT, 'off'], { stdio: 'ignore' }); } catch {}
   setTimeout(() => process.exit(0), 300);
 };
-setTimeout(finish, (Number(process.env.BWL_TTL) || 600) * 1000).unref();
+setTimeout(() => { done = true; cleanup(); }, (Number(process.env.BWL_TTL) || 600) * 1000).unref();
 
 const server = http.createServer((req, res) => {
   const q = new URL(req.url, 'http://x').searchParams;
@@ -55,10 +56,12 @@ const server = http.createServer((req, res) => {
     const f = new URLSearchParams(body); body = '';
     const save = spawn('/bin/zsh', ['-c', process.env.BWL_SAVE], { stdio: ['pipe', 'ignore', 'ignore'] });
     save.stdin.end(JSON.stringify({ site, url, username: f.get('username') || '', password: f.get('password') || '' }));
+    // answer at once: saving to Bitwarden takes several seconds, and phones gave up waiting. The agent confirms (or reports a failure) in chat.
+    res.writeHead(200, { ...headers, connection: 'close' });
+    res.end(page('Received', `<h2>Received ✓</h2><p>Saving ${esc(site)} to the vault now. You'll get a confirmation in chat. You can close this page.`));
     save.on('exit', code => {
-      res.writeHead(200, headers);
-      res.end(code === 0 ? page('Saved', `<h2>Saved ✓</h2><p>${esc(site)} is saved. You can close this page.`)
-                         : page('Not saved', '<h2>Not saved</h2><p>Saving to the vault failed. Ask claw for a new link.'));
+      if (code !== 0 && process.env.BWL_WAKE !== '0')
+        spawn('openclaw', ['system', 'event', '--mode', 'now', '--text', `bitwarden-login: saving the "${site}" login from the one-time link FAILED. Tell the user and offer a new link (bwl.sh add).`], { stdio: 'ignore', detached: true }).unref();
       finish();
     });
   });
